@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Malla de Gravedad Sonora 5.0 (Materia Cósmica)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #020205;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        /* UI Layer Styles */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        .hud-panel {
+            background: rgba(2, 5, 20, 0.75);
+            border: 1px solid rgba(100, 200, 255, 0.2);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            pointer-events: auto;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.05);
+        }
+        .hud-panel:hover {
+            border-color: rgba(100, 255, 255, 0.5);
+            box-shadow: 0 0 30px rgba(0, 200, 255, 0.15);
+        }
+        
+        /* Start Screen */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #050510, #000);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            pointer-events: auto;
+            padding: 20px;
+        }
+        
+        /* Custom Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 8px 0;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #00ffff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px #00ffff;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+        }
+
+        /* Buttons & Text */
+        .glow-text {
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+        }
+        button.start-btn {
+            background: linear-gradient(135deg, #00c3ff, #0044ff);
+            border: none;
+            padding: 16px 45px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 0 30px rgba(0, 100, 255, 0.4);
+            margin-top: 30px;
+            letter-spacing: 2px;
+            max-width: 100%;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        button.start-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(0, 200, 255, 0.6);
+            background: linear-gradient(135deg, #40dfff, #2060ff);
+        }
+        
+        #hidden-video { display: none; }
+        
+        .control-group { margin-bottom: 12px; }
+        .control-label {
+            display: flex; justify-content: space-between;
+            font-size: 0.8rem; color: #a0d0ff; margin-bottom: 4px;
+        }
+
+        /* Collapsible */
+        .collapsible-content {
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            max-height: 500px; opacity: 1; overflow: hidden;
+        }
+        .collapsed .collapsible-content {
+            max-height: 0; opacity: 0; margin-bottom: 0;
+        }
+        .toggle-icon { transition: transform 0.3s ease; }
+        .collapsed .toggle-icon { transform: rotate(-90deg); }
+    </style>
+</head>
+<body>
+
+    <video id="hidden-video" autoplay playsinline muted></video>
+    <canvas id="simulation"></canvas>
+
+    <div id="start-screen">
+        <h1 class="text-4xl md:text-7xl font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-100 to-indigo-400 glow-text">
+            SONIDO & MATERIA
+        </h1>
+        <p class="text-lg md:text-xl text-blue-200 tracking-[0.2em] mb-8 font-light">SIMULACIÓN DE GRAVEDAD 5.0</p>
+        
+        <div class="max-w-md w-full text-blue-100 space-y-4 px-6 text-sm md:text-base bg-gradient-to-b from-blue-900/30 to-black/40 p-6 rounded-2xl border border-blue-500/20 backdrop-blur-md">
+            <p>🌌 <b>Polvo Cósmico:</b> Partículas que caen en los pozos gravitatorios.</p>
+            <p>👁️ <b>Interacción:</b> Tu presencia en cámara atrae la materia.</p>
+            <p>🎵 <b>Sonido:</b> Las frecuencias altas hacen levitar las partículas.</p>
+        </div>
+        
+        <button id="start-btn" class="start-btn">INICIAR SIMULACIÓN</button>
+    </div>
+
+    <div id="ui-layer" style="display: none;">
+        <div id="controls-panel" class="hud-panel w-full max-w-[280px] sm:w-72 mt-2 sm:mt-4 ml-0 sm:ml-4">
+            <div class="flex justify-between items-center border-b border-blue-500/20 pb-2 mb-3 cursor-pointer group" id="toggle-header">
+                <h3 class="text-cyan-300 font-bold text-xs tracking-wider select-none group-hover:text-white transition-colors">CONTROLES DE FÍSICA</h3>
+                <svg class="w-4 h-4 text-cyan-400 toggle-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+            </div>
+            
+            <div class="collapsible-content">
+                <div class="control-group">
+                    <div class="control-label"><span>Sensibilidad Audio</span><span id="val-audio">200</span></div>
+                    <input type="range" min="0" max="500" value="200" id="inp-audio">
+                </div>
+                <div class="control-group">
+                    <div class="control-label"><span>Gravedad Visual</span><span id="val-video">350</span></div>
+                    <input type="range" min="0" max="600" value="350" id="inp-video">
+                </div>
+                <div class="control-group">
+                    <div class="control-label"><span>Elasticidad</span><span id="val-tension">0.025</span></div>
+                    <input type="range" min="0.005" max="0.1" step="0.005" value="0.025" id="inp-tension">
+                </div>
+                <div class="control-group">
+                    <div class="control-label"><span>Fluidez</span><span id="val-damp">0.94</span></div>
+                    <input type="range" min="0.80" max="0.99" step="0.01" value="0.94" id="inp-damp">
+                </div>
+                <div class="control-group">
+                    <div class="control-label"><span>Cant. Partículas</span><span id="val-particles">300</span></div>
+                    <input type="range" min="0" max="1000" step="50" value="300" id="inp-particles">
+                </div>
+            </div>
+        </div>
+        
+        <div class="hud-panel self-end w-auto min-w-[160px] mr-0 sm:mr-4 mb-2 sm:mb-4 text-right">
+            <div class="flex flex-col justify-end h-full">
+                <div class="text-[10px] sm:text-xs text-blue-300 mb-1 tracking-widest">RESONANCIA</div>
+                <div class="text-xl sm:text-3xl font-mono text-white mb-3 tracking-tighter" style="text-shadow: 0 0 10px rgba(0,255,255,0.5);"><span id="freq-val">0</span> <span class="text-xs sm:text-sm text-gray-500 font-sans">Hz</span></div>
+                
+                <div class="text-[10px] sm:text-xs text-blue-300 mb-1 tracking-widest">NIVEL DE ENERGÍA</div>
+                <div class="h-1.5 w-full bg-blue-900/50 rounded-full overflow-hidden mt-1">
+                    <div id="bar-intensity" class="h-full bg-gradient-to-r from-blue-600 via-cyan-400 to-white w-0 shadow-[0_0_15px_rgba(0,255,255,0.8)]"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            gridSize: 35,        
+            perspective: 800,    
+            baseZ: 250,          
+            dampening: 0.94,     
+            tension: 0.025,      
+            videoInfluence: 350, 
+            audioInfluence: 200, 
+            blackHoleMass: 1200,
+            smoothing: 0.4,
+            particleCount: 300
+        };
+
+        let canvas, ctx;
+        let width, height;
+        let points = [];
+        let stars = []; 
+        let particles = []; // NUEVO: Arreglo de partículas físicas
+        
+        let audioContext, analyser, microphone, dataArray;
+        let videoElement, videoCanvas, videoCtx;
+        let isRunning = false;
+        let dominantFrequency = 0;
+        let averageVolume = 0;
+        
+        let mouseX = -9999;
+        let mouseY = -9999;
+
+        const startScreen = document.getElementById('start-screen');
+        const uiLayer = document.getElementById('ui-layer');
+        const startBtn = document.getElementById('start-btn');
+        const hiddenVideo = document.getElementById('hidden-video');
+
+        // Toggle
+        document.getElementById('toggle-header').addEventListener('click', () => {
+            document.getElementById('controls-panel').classList.toggle('collapsed');
+        });
+
+        // Inputs
+        const updateLabel = (id, val) => document.getElementById(id).innerText = val;
+        
+        document.getElementById('inp-audio').addEventListener('input', (e) => { CONFIG.audioInfluence = parseFloat(e.target.value); updateLabel('val-audio', CONFIG.audioInfluence); });
+        document.getElementById('inp-video').addEventListener('input', (e) => { CONFIG.videoInfluence = parseFloat(e.target.value); updateLabel('val-video', CONFIG.videoInfluence); });
+        document.getElementById('inp-tension').addEventListener('input', (e) => { CONFIG.tension = parseFloat(e.target.value); updateLabel('val-tension', CONFIG.tension); });
+        document.getElementById('inp-damp').addEventListener('input', (e) => { CONFIG.dampening = parseFloat(e.target.value); updateLabel('val-damp', CONFIG.dampening); });
+        document.getElementById('inp-particles').addEventListener('input', (e) => { 
+            CONFIG.particleCount = parseInt(e.target.value); 
+            updateLabel('val-particles', CONFIG.particleCount);
+            // Ajustar array dinámicamente
+            while(particles.length < CONFIG.particleCount) particles.push(new Particle());
+            while(particles.length > CONFIG.particleCount) particles.pop();
+        });
+
+        class Star {
+            constructor() { this.reset(); }
+            reset() {
+                this.x = (Math.random() - 0.5) * width * 2; 
+                this.y = (Math.random() - 0.5) * height * 2;
+                this.z = Math.random() * 2000 + 500; 
+                this.size = Math.random() * 2; 
+                this.baseAlpha = Math.random() * 0.5 + 0.1;
+            }
+            update(speed) {
+                this.z -= speed;
+                if (this.z <= 1) this.reset();
+            }
+            draw() {
+                const scale = CONFIG.perspective / (CONFIG.perspective + this.z);
+                const sx = (this.x) * scale + width/2;
+                const sy = (this.y) * scale + height/2;
+                if (sx < 0 || sx > width || sy < 0 || sy > height) return;
+                
+                const opacity = Math.min(this.baseAlpha + (averageVolume/400), 1);
+                ctx.fillStyle = `rgba(220, 240, 255, ${opacity})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, this.size * scale, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // NUEVA CLASE PARTÍCULA (MATERIA CÓSMICA)
+        class Particle {
+            constructor() {
+                this.reset();
+                // Iniciar en posición aleatoria sobre la malla
+                this.x = (Math.random() - 0.5) * (width * 1.5);
+                this.y = (Math.random() - 0.5) * (height * 1.5);
+                this.z = 0; // Altura sobre la malla
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.vz = 0;
+                this.friction = 0.96;
+                this.life = Math.random() * 100;
+            }
+
+            reset() {
+                this.x = (Math.random() - 0.5) * (width * 1.5);
+                this.y = (Math.random() - 0.5) * (height * 1.5);
+                this.z = -50; // Aparecer un poco arriba
+                this.vx = (Math.random() - 0.5);
+                this.vy = (Math.random() - 0.5);
+                this.vz = 0;
+                this.life = 100;
+                this.size = Math.random() * 2 + 1;
+            }
+
+            update(gridPoints) {
+                this.life -= 0.5;
+                if (this.life <= 0) this.reset();
+
+                // 1. Encontrar el punto de la malla más cercano para ver la gravedad local
+                // Aproximación simple basada en coordenadas
+                // El centro de la pantalla es 0,0 en nuestro sistema de coordenadas de partículas
+                // La malla también está centrada.
+                
+                // Mapear posición de partícula a índice de malla (aprox)
+                // Tamaño total malla aprox = gridSize * step
+                // step aprox = (Math.max(width, height) * 1.5) / CONFIG.gridSize
+                const range = Math.max(width, height) * 1.5;
+                const step = range / CONFIG.gridSize;
+                
+                // Convertir coord partícula a coord índice malla
+                const idxX = Math.floor((this.x + range/2) / step);
+                const idxY = Math.floor((this.y + range/2) / step);
+
+                let localGravityZ = 0;
+                let gravityX = 0;
+                let gravityY = 0;
+
+                // Si está dentro de los límites de la malla
+                if (idxX >= 0 && idxX < CONFIG.gridSize - 1 && idxY >= 0 && idxY < CONFIG.gridSize - 1) {
+                    const index = idxY * CONFIG.gridSize + idxX;
+                    const p = gridPoints[index];
+                    const pRight = gridPoints[index + 1];
+                    const pDown = gridPoints[index + CONFIG.gridSize];
+
+                    if (p && pRight && pDown) {
+                        localGravityZ = p.currentZ; // Profundidad de la malla aquí
+                        
+                        // Calcular pendiente (gradiente) para deslizar la partícula
+                        // Si p.currentZ es mayor (más profundo), la partícula debe ir hacia allí
+                        // Pendiente X: Diferencia entre este punto y el de la derecha
+                        const slopeX = (pRight.currentZ - p.currentZ) * 0.05;
+                        const slopeY = (pDown.currentZ - p.currentZ) * 0.05;
+                        
+                        gravityX = slopeX;
+                        gravityY = slopeY;
+                    }
+                }
+
+                // 2. Aplicar Fuerzas
+                
+                // Gravedad de la malla (Deslizamiento)
+                this.vx += gravityX;
+                this.vy += gravityY;
+
+                // Atracción al Agujero Negro (Mouse)
+                if (mouseX > 0) {
+                    // Convertir mouse pantalla a mundo aprox (invertir proyección simple)
+                    const mWorldX = mouseX - width/2;
+                    const mWorldY = mouseY - height/2;
+                    
+                    const dx = mWorldX - this.x;
+                    const dy = mWorldY - this.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    
+                    if (dist < 400) {
+                        const force = 500 / (dist + 10);
+                        this.vx += (dx / dist) * force * 0.5;
+                        this.vy += (dy / dist) * force * 0.5;
+                        
+                        // Rotación (Acreción)
+                        this.vx += -(dy / dist) * force * 0.5;
+                        this.vy += (dx / dist) * force * 0.5;
+                    }
+                }
+
+                // Antigravedad Sonora (Levitación)
+                // Si la frecuencia dominante es alta y hay volumen, empujar hacia arriba (Z negativo visualmente es arriba en proyección, pero aquí Z es profundidad)
+                // Z negativo = acercarse a cámara/subir. Z positivo = alejarse/bajar.
+                if (dominantFrequency > 500 && averageVolume > 30) {
+                     this.vz -= (averageVolume / 255) * 2;
+                }
+                
+                // Gravedad natural hacia la malla
+                // La partícula intenta igualar su Z con la Z de la malla
+                const deltaZ = (localGravityZ - this.z);
+                this.vz += deltaZ * 0.05; // Spring to mesh height
+                
+                // Física Euler
+                this.vx *= this.friction;
+                this.vy *= this.friction;
+                this.vz *= 0.8; // Mucha fricción en aire vertical
+                
+                this.x += this.vx;
+                this.y += this.vy;
+                this.z += this.vz;
+            }
+
+            draw() {
+                // Proyección
+                // Z de partícula + BaseZ
+                const depth = CONFIG.baseZ + this.z;
+                if (depth < 10) return; // Detrás de cámara o muy cerca
+                
+                const scale = CONFIG.perspective / (CONFIG.perspective + depth);
+                const sx = (this.x) * scale + width/2;
+                const sy = (this.y) * scale + height/2;
+
+                if (sx < 0 || sx > width || sy < 0 || sy > height) return;
+
+                // Color basado en velocidad o estado
+                const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+                const alpha = Math.min(1, (this.life / 50)) * Math.min(1, speed/2 + 0.3);
+                
+                ctx.fillStyle = `rgba(200, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(sx, sy, this.size * scale, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Point {
+            constructor(x, y, z) {
+                this.baseX = x;
+                this.baseY = y;
+                this.baseZ = z;
+                this.currentZ = z;
+                this.velocityZ = 0;
+                this.lastForceType = 0; 
+            }
+
+            update() {
+                const displacement = this.currentZ - this.baseZ;
+                const force = -CONFIG.tension * displacement;
+                
+                this.velocityZ += force;
+                this.velocityZ *= CONFIG.dampening;
+                this.currentZ += this.velocityZ;
+
+                if (mouseX > 0) {
+                    const scale = CONFIG.perspective / (CONFIG.perspective + this.currentZ + CONFIG.baseZ);
+                    const screenX = (this.baseX - width/2) * scale + width/2;
+                    const screenY = (this.baseY - height/2) * scale + height/2;
+                    const dx = screenX - mouseX;
+                    const dy = screenY - mouseY;
+                    if (Math.abs(dx) < 250 && Math.abs(dy) < 250) {
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < 250) {
+                            const pull = (1 - dist/250) * CONFIG.blackHoleMass;
+                            this.velocityZ += pull * 0.8; 
+                        }
+                    }
+                }
+            }
+
+            applyForce(force, type) {
+                this.velocityZ += force;
+                this.lastForceType = this.lastForceType * 0.9 + type * 0.1;
+            }
+        }
+
+        function init() {
+            canvas = document.getElementById('simulation');
+            ctx = canvas.getContext('2d', { alpha: false });
+            videoCanvas = document.createElement('canvas');
+            videoCtx = videoCanvas.getContext('2d', { willReadFrequently: true });
+
+            resize();
+            createWorld();
+            setupControls();
+            
+            window.addEventListener('resize', resize);
+            window.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+            window.addEventListener('touchmove', e => { mouseX = e.touches[0].clientX; mouseY = e.touches[0].clientY; }, {passive: false});
+            window.addEventListener('touchend', () => { mouseX = -9999; });
+
+            startBtn.addEventListener('click', startExperience);
+        }
+
+        function setupControls() {
+             // Ya configurado inline en el HTML para mantener orden
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            if(points.length > 0) createWorld();
+        }
+
+        function createWorld() {
+            points = [];
+            stars = [];
+            particles = [];
+
+            const range = Math.max(width, height) * 1.5;
+            const step = range / CONFIG.gridSize;
+            
+            for (let y = 0; y < CONFIG.gridSize; y++) {
+                for (let x = 0; x < CONFIG.gridSize; x++) {
+                    const pX = (x - CONFIG.gridSize/2) * step; // Centrado en 0,0 mundo
+                    const pY = (y - CONFIG.gridSize/2) * step;
+                    points.push(new Point(pX, pY, 0));
+                }
+            }
+            for(let i=0; i<180; i++) stars.push(new Star());
+            for(let i=0; i<CONFIG.particleCount; i++) particles.push(new Particle());
+        }
+
+        async function startExperience() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = CONFIG.smoothing;
+                analyser.minDecibels = -85;
+                analyser.maxDecibels = -10;
+                
+                const streamAudio = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+                microphone = audioContext.createMediaStreamSource(streamAudio);
+                microphone.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+                const streamVideo = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 320 }, height: { ideal: 240 }, frameRate: { ideal: 30 } } });
+                hiddenVideo.srcObject = streamVideo;
+                hiddenVideo.onloadedmetadata = () => { videoCanvas.width = CONFIG.gridSize; videoCanvas.height = CONFIG.gridSize; };
+
+                startScreen.style.opacity = '0';
+                setTimeout(() => startScreen.style.display = 'none', 800);
+                uiLayer.style.display = 'flex';
+                isRunning = true;
+                animate();
+            } catch (err) {
+                console.error(err);
+                alert("Error de acceso: " + err.message);
+            }
+        }
+
+        function analyzeAudio() {
+            analyser.getByteFrequencyData(dataArray);
+            let sum = 0, maxVal = 0, maxIndex = 0;
+            const usefulLength = Math.floor(dataArray.length * 0.8);
+            
+            for (let i = 0; i < usefulLength; i++) {
+                const val = dataArray[i];
+                sum += val;
+                if (val > maxVal) { maxVal = val; maxIndex = i; }
+            }
+            averageVolume = sum / usefulLength;
+            const nyquist = audioContext.sampleRate / 2;
+            dominantFrequency = maxIndex * (nyquist / dataArray.length);
+
+            document.getElementById('freq-val').innerText = Math.round(dominantFrequency);
+            document.getElementById('bar-intensity').style.width = Math.min(100, averageVolume * 2.0) + '%';
+        }
+
+        function getNoteColor(freq, volume) {
+            let h, s, l;
+            if (freq < 150) { 
+                h = 240 + (freq/150)*40; // Azul profundo a Violeta
+                s = 90; l = 40 + (volume/255)*20;
+            } else if (freq < 600) { 
+                h = 190 + ((freq-150)/450)*50; // Cian a Azul
+                s = 100; l = 50 + (volume/255)*10;
+            } else { 
+                if (freq > 2000) h = 300; else h = 170; // Magenta o Menta
+                s = 100; l = 70 + (volume/255)*30;
+            }
+            return { h, s, l };
+        }
+
+        function animate() {
+            if (!isRunning) return;
+            requestAnimationFrame(animate);
+
+            // Fondo con leve degradado horizonte
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#020208');
+            gradient.addColorStop(1, '#051020');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0,0,width,height);
+
+            analyzeAudio();
+
+            // Estrellas
+            const starSpeed = 3 + (averageVolume / 255) * 40; 
+            for (const star of stars) { star.update(starSpeed); star.draw(); }
+
+            // Procesar Video
+            let frameData = null;
+            if (hiddenVideo.readyState === hiddenVideo.HAVE_ENOUGH_DATA) {
+                videoCtx.drawImage(hiddenVideo, 0, 0, CONFIG.gridSize, CONFIG.gridSize);
+                frameData = videoCtx.getImageData(0, 0, CONFIG.gridSize, CONFIG.gridSize).data;
+            }
+
+            const globalColor = getNoteColor(dominantFrequency, averageVolume);
+            const time = Date.now() * 0.003;
+            const volFactor = averageVolume / 255;
+            const audioForceBase = volFactor * CONFIG.audioInfluence;
+            const isHighFreq = dominantFrequency > 600;
+
+            // Actualizar Puntos Malla
+            let pIndex = 0;
+            const projectedPoints = new Array(points.length);
+
+            for (let y = 0; y < CONFIG.gridSize; y++) {
+                for (let x = 0; x < CONFIG.gridSize; x++) {
+                    const p = points[pIndex];
+
+                    if (frameData) {
+                        const pixelX = CONFIG.gridSize - 1 - x;
+                        const pIx = (y * CONFIG.gridSize + pixelX) * 4;
+                        const brightness = (frameData[pIx] + frameData[pIx+1] + frameData[pIx+2]) / 3;
+                        if (brightness > 25) {
+                            const gravityForce = (brightness / 255) * CONFIG.videoInfluence * 1.5; 
+                            p.applyForce(gravityForce, -1);
+                        }
+                    }
+
+                    const noise = Math.sin(x * 0.4 + time) * Math.cos(y * 0.4 + time);
+                    if (isHighFreq) {
+                        let f = -audioForceBase * 0.8; 
+                        if (Math.random() > 0.7) f *= 1.4; 
+                        p.applyForce(f * Math.abs(noise), 1);
+                    } else {
+                        p.applyForce(audioForceBase * 0.7 * noise, 0);
+                    }
+
+                    p.update();
+                    
+                    const scale = CONFIG.perspective / (CONFIG.perspective + p.currentZ + CONFIG.baseZ);
+                    projectedPoints[pIndex] = {
+                        x: (p.baseX) * scale + width/2, // Ajuste para nuevo sistema coords
+                        y: (p.baseY) * scale + height/2,
+                        z: p.currentZ,
+                        scale: scale,
+                        forceType: p.lastForceType
+                    };
+                    pIndex++;
+                }
+            }
+
+            // DIBUJAR MALLA
+            ctx.lineWidth = 1.5; 
+            for (let y = 0; y < CONFIG.gridSize; y++) {
+                for (let x = 0; x < CONFIG.gridSize; x++) {
+                    const i = y * CONFIG.gridSize + x;
+                    const pp = projectedPoints[i];
+
+                    if (pp.scale <= 0) continue;
+                    if (pp.x < -50 || pp.x > width + 50 || pp.y < -50 || pp.y > height + 50) continue;
+
+                    const displacement = Math.abs(pp.z);
+                    
+                    let lineHue = 210; 
+                    let lineLight = 50;
+                    let lineAlpha = 0.15; // Malla base más sutil para destacar partículas
+
+                    if (pp.forceType < -0.3) { // Gravedad
+                        lineHue = 260; lineLight = 40; lineAlpha = 0.4 + (displacement/200);
+                    } else if (pp.forceType > 0.3) { // Energía
+                        lineHue = 180; lineLight = 80; lineAlpha = 0.6;
+                    } else if (volFactor > 0.1) {
+                        lineHue = globalColor.h; lineAlpha = 0.3;
+                    }
+
+                    ctx.strokeStyle = `hsla(${lineHue}, 90%, ${lineLight}%, ${lineAlpha})`;
+                    ctx.beginPath();
+                    if (x < CONFIG.gridSize - 1) {
+                        const pn = projectedPoints[i+1];
+                        if (pn && pn.scale > 0) { ctx.moveTo(pp.x, pp.y); ctx.lineTo(pn.x, pn.y); }
+                    }
+                    if (y < CONFIG.gridSize - 1) {
+                        const pb = projectedPoints[i+CONFIG.gridSize];
+                        if (pb && pb.scale > 0) { ctx.moveTo(pp.x, pp.y); ctx.lineTo(pb.x, pb.y); }
+                    }
+                    ctx.stroke();
+
+                    // Nodos solo si hay actividad
+                    if (displacement > 10 || volFactor > 0.1) {
+                        const radius = Math.max(0, (pp.scale * 2.5) + (displacement / 50));
+                        ctx.beginPath();
+                        ctx.arc(pp.x, pp.y, radius, 0, Math.PI * 2);
+                        if (pp.forceType < -0.5) ctx.fillStyle = `hsla(270, 100%, 60%, 0.8)`;
+                        else if (pp.forceType > 0.5) ctx.fillStyle = `hsla(180, 100%, 95%, 0.9)`;
+                        else ctx.fillStyle = `hsla(${globalColor.h}, ${globalColor.s}%, ${globalColor.l}%, 0.8)`;
+                        ctx.fill();
+                    }
+                }
+            }
+
+            // ACTUALIZAR Y DIBUJAR PARTÍCULAS
+            for (const p of particles) {
+                p.update(points); // Pasa la malla para calcular gravedad
+                p.draw();
+            }
+
+            // Mouse UI
+            if (mouseX > 0) {
+                ctx.beginPath();
+                ctx.arc(mouseX, mouseY, 30, 0, Math.PI*2);
+                ctx.strokeStyle = `rgba(100, 200, 255, 0.3)`;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+        
+        window.onload = init;
+
+    </script>
+</body>
+</html>
